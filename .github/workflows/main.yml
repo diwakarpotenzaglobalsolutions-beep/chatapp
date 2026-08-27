@@ -30,6 +30,20 @@ jobs:
           grep -q "8.11.1" android/settings.gradle.kts
 
       - run: flutter pub get
+
+      - name: Prepare FCM service account asset
+        run: |
+          mkdir -p assets
+          if [ -n "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" ]; then
+            printf '%s' "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" > assets/notijson.json
+          elif [ ! -f assets/notijson.json ]; then
+            cp assets/notijson.json.example assets/notijson.json
+          fi
+          test -f assets/notijson.json
+
+      - name: Verify Dart compiles
+        run: flutter analyze lib
+
       - run: flutter build apk --release --split-per-abi
       - run: |
           flutter build ios --no-codesign
