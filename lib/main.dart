@@ -44,6 +44,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+
   Stripe.publishableKey = StripeConfig.publishableKey;
 
   await Stripe.instance.applySettings();
