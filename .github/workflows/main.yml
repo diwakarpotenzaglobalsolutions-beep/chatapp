@@ -21,9 +21,15 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-          architecture: x64
+          channel: stable
+          cache: true
 
+      - name: Verify Android Gradle config
+        run: |
+          grep -q "android.newDsl=false" android/gradle.properties
+          grep -q "8.11.1" android/settings.gradle.kts
+
+      - run: flutter pub get
       - run: flutter build apk --release --split-per-abi
       - run: |
           flutter build ios --no-codesign

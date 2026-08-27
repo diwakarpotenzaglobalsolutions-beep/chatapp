@@ -15,14 +15,22 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+
+    // AGP 8.11.x works with Flutter 3.44+ and avoids AGP 9 new-DSL requirement.
+    resolutionStrategy {
+        eachPlugin {
+            when (requested.id.id) {
+                "com.android.application",
+                "com.android.library" -> useVersion("8.11.1")
+            }
+        }
+    }
 }
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    // AGP 8.9.x is required for modern AndroidX deps while staying compatible with
-    // ZEGOCLOUD legacy Groovy `apply plugin: 'com.android.library'` build scripts.
-    id("com.android.application") version "8.9.1" apply false
-    id("com.android.library") version "8.9.1" apply false
+    id("com.android.application") version "8.11.1" apply false
+    id("com.android.library") version "8.11.1" apply false
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
     id("com.google.gms.google-services") version "4.4.4" apply false
 }
