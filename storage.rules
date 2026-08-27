@@ -1,0 +1,36 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Rules for profile pictures
+    match /profile_images/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Allow writing profile picture
+    }
+
+    // Rules for chat image attachments
+    match /chat_images/{allPaths=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Rules for chat video attachments
+    match /chat_videos/{allPaths=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Rules for chat audio attachments (voice recordings)
+    match /chat_audio/{allPaths=**} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Rules for chat document attachments (PDFs, docs)
+    match /chat_documents/{allPaths=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
