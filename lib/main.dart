@@ -34,6 +34,7 @@ late final SubscriptionBloc _subscriptionBloc;
 late final GoRouter _appRouter;
 
 void main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
 
   ZegoUIKitPrebuiltCallInvitationService().setNavigatorKey(rootNavigatorKey);
