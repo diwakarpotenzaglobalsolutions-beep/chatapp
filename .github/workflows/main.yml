@@ -1,58 +1,146 @@
+name: Build & Release
+
 on:
   pull_request:
     branches:
       - main
       - master
+
   push:
     branches:
       - main
       - master
       - develop
-name: "Build & Release"
+
 jobs:
   build:
-    name: Build & Release
+    name: Build Android & iOS
     runs-on: macos-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      # --------------------------------
+      # Checkout
+      # --------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --------------------------------
+      # Java
+      # --------------------------------
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: "17"
-      - uses: subosito/flutter-action@v2
+
+      # --------------------------------
+      # Flutter
+      # --------------------------------
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
+      # --------------------------------
+      # FCM Service Account
+      # --------------------------------
       - name: Prepare FCM service account asset
         run: |
           mkdir -p assets
+
           if [ -n "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" ]; then
             printf '%s' "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" > assets/notijson.json
           elif [ ! -f assets/notijson.json ]; then
             cp assets/notijson.json.example assets/notijson.json
           fi
+
           test -f assets/notijson.json
 
-      - run: flutter pub get
+      # --------------------------------
+      # Flutter dependencies
+      # --------------------------------
+      - name: Flutter Pub Get
+        run: flutter pub get
 
-      - name: Verify Dart compiles
-        run: flutter analyze lib --no-fatal-infos --no-fatal-warnings
+      # --------------------------------
+      # Analyze
+      # --------------------------------
+      - name: Verify Dart
+        run: |
+          flutter analyze lib \
+            --no-fatal-infos \
+            --no-fatal-warnings
 
-      - run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+      # --------------------------------
+      # Android APK
+      # --------------------------------
+      - name: Build Android APK
+        run: |
+          flutter build apk \
+            --release \
+            --split-per-abi \
+            --android-skip-build-dependency-validation
 
-      - run: |
-          flutter build ios --no-codesign
+      # --------------------------------
+      # iOS - UNSIGNED BUILD
+      # --------------------------------
+      #
+      # IMPORTANT:
+      # This IPA is NOT installable on a physical iPhone.
+      # It is only a CI build artifact because there is
+      # no Apple signing configured in GitHub Actions.
+      #
+      # --------------------------------
+      - name: Build iOS unsigned
+        run: |
+          flutter clean
+          flutter pub get
+
+          flutter build ios \
+            --release \
+            --no-codesign
+
+      # --------------------------------
+      # Package unsigned iOS IPA
+      # --------------------------------
+      - name: Create iOS IPA
+        run: |
+          rm -rf build/ios/iphoneos/Payload
+          rm -f build/ios/iphoneos/app.ipa
+
+          mkdir -p build/ios/iphoneos/Payload
+
+          cp -R \
+            build/ios/iphoneos/Runner.app \
+            build/ios/iphoneos/Payload/
+
           cd build/ios/iphoneos
-          mkdir Payload
-          cd Payload
-          ln -s ../Runner.app
-          cd ..
+
           zip -r app.ipa Payload
 
+      # --------------------------------
+      # Show generated files
+      # --------------------------------
+      - name: List build files
+        run: |
+          echo "Android:"
+          find build/app/outputs/flutter-apk -type f
+
+          echo ""
+          echo "iOS:"
+          ls -lh build/ios/iphoneos/app.ipa
+
+      # --------------------------------
+      # GitHub Release
+      # --------------------------------
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/apk/release/*,build/ios/iphoneos/app.ipa"
+          artifacts: |
+            build/app/outputs/flutter-apk/*.apk
+            build/ios/iphoneos/app.ipa
+
           tag: v1.0.${{ github.run_number }}
+
           token: ${{ secrets.TOKEN }}
