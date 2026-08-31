@@ -16,7 +16,6 @@ pluginManagement {
         gradlePluginPortal()
     }
 
-    // AGP 8.11.x works with Flutter 3.44+ and avoids AGP 9 new-DSL requirement.
     resolutionStrategy {
         eachPlugin {
             when (requested.id.id) {

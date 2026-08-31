@@ -56,9 +56,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
+  final _searchController = TextEditingController();
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-  final _searchController = TextEditingController();
   final _picker = ImagePicker();
   final _uuid = const Uuid();
 
