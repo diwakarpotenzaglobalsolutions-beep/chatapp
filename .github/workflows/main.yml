@@ -83,61 +83,67 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
       - name: Check Apple signing secrets
         id: apple_signing
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           if [ -n "$APPLE_CERTIFICATE_BASE64" ] && \
              [ -n "$APPLE_CERTIFICATE_PASSWORD" ] && \
-             [ -n "$APPLE_PROVISIONING_PROFILE_BASE64" ] && \
-             [ -n "$KEYCHAIN_PASSWORD" ]; then
+             [ -n "$APPLE_PROVISIONING_PROFILE_BASE64" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "Apple signing secrets found — building installable IPA."
+            echo "Apple signing configured — building installable signed IPA."
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Apple signing secrets are not configured. Skipping IPA build."
-            echo "::warning::Add these GitHub secrets to enable installable iOS builds:"
-            echo "::warning::  APPLE_CERTIFICATE_BASE64"
-            echo "::warning::  APPLE_CERTIFICATE_PASSWORD"
-            echo "::warning::  APPLE_PROVISIONING_PROFILE_BASE64"
-            echo "::warning::  KEYCHAIN_PASSWORD"
+            echo "::warning::Apple signing secrets missing — building unsigned IPA for CI only."
+            echo "::warning::Unsigned IPA cannot be installed on iPhone."
+            echo "::warning::Add APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, and APPLE_PROVISIONING_PROFILE_BASE64 for installable builds."
           fi
 
-      - name: Install Apple certificate and provisioning profile
+      - name: Import signing certificate
+        if: steps.apple_signing.outputs.enabled == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Install provisioning profile
         if: steps.apple_signing.outputs.enabled == 'true'
         env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-
-          echo -n "$APPLE_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          PP_PATH="$RUNNER_TEMP/profile.mobileprovision"
           echo -n "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
 
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<< "$(/usr/bin/security cms -D -i "$PP_PATH")")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/${UUID}.mobileprovision"
+          echo "Installed provisioning profile: $UUID"
 
       - name: Build signed IPA
         if: steps.apple_signing.outputs.enabled == 'true'
         run: flutter build ipa --export-options-plist=ios/ExportOptions.plist
 
+      - name: Build unsigned IPA (CI fallback)
+        if: steps.apple_signing.outputs.enabled != 'true'
+        run: |
+          flutter build ios --release --no-codesign
+
+          mkdir -p build/ios/ipa
+          rm -rf Payload
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr build/ios/ipa/chatapp-unsigned.ipa Payload
+          rm -rf Payload
+
       - uses: actions/upload-artifact@v4
-        if: steps.apple_signing.outputs.enabled == 'true'
         with:
           name: ios-ipa
           path: build/ios/ipa/*.ipa
@@ -147,7 +153,7 @@ jobs:
     name: Publish GitHub Release
     needs: [android, ios]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && needs.android.result == 'success'
+    if: github.event_name == 'push' && needs.android.result == 'success' && needs.ios.result == 'success'
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -155,7 +161,6 @@ jobs:
           path: artifacts/android-apks
 
       - uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: ios-ipa
           path: artifacts/ios-ipa
@@ -163,18 +168,9 @@ jobs:
       - name: List release artifacts
         run: find artifacts -type f
 
-      - name: Prepare artifact list
-        id: artifacts
-        run: |
-          list="artifacts/android-apks/*"
-          if compgen -G "artifacts/ios-ipa/*.ipa" > /dev/null; then
-            list="$list,artifacts/ios-ipa/*"
-          fi
-          echo "list=$list" >> "$GITHUB_OUTPUT"
-
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: ${{ steps.artifacts.outputs.list }}
+          artifacts: "artifacts/android-apks/*,artifacts/ios-ipa/*"
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
