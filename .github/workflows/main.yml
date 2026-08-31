@@ -102,10 +102,9 @@ jobs:
             echo "Apple signing configured — building installable signed IPA."
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::error::Cannot create installable IPA — Apple signing secrets are missing."
-            echo "::error::Add APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, and APPLE_PROVISIONING_PROFILE_BASE64 in GitHub repo secrets."
-            echo "::error::Run scripts/prepare_ios_secrets.sh on your Mac to generate these values."
-            echo "::error::Unsigned IPA files cannot be installed on iPhone (integrity error)."
+            echo "::warning::Apple signing secrets missing — iOS will compile but IPA will not be installable on iPhone."
+            echo "::warning::Add APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, and APPLE_PROVISIONING_PROFILE_BASE64."
+            echo "::warning::Run scripts/prepare_ios_secrets.sh on your Mac to generate these values."
           fi
 
       - name: Import signing certificate
@@ -141,9 +140,9 @@ jobs:
           codesign --verify --deep --strict /tmp/ipa-check/Payload/*.app
           echo "IPA signature verified: $IPA"
 
-      - name: Fail when signing secrets missing
+      - name: Build iOS (compile check, no signing)
         if: steps.apple_signing.outputs.enabled != 'true'
-        run: exit 1
+        run: flutter build ios --release --no-codesign
 
       - uses: actions/upload-artifact@v4
         if: steps.apple_signing.outputs.enabled == 'true'
