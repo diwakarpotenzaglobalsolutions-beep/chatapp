@@ -61,7 +61,7 @@ jobs:
           retention-days: 7
 
   ios:
-    name: Build signed iOS IPA
+    name: Build iOS IPA
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,23 +83,32 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Verify Apple signing secrets
-        run: |
-          missing=0
-          for secret in APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE_BASE64 KEYCHAIN_PASSWORD; do
-            if [ -z "${!secret}" ]; then
-              echo "::error::$secret GitHub secret is required for installable IPA files."
-              missing=1
-            fi
-          done
-          exit $missing
+      - name: Check Apple signing secrets
+        id: apple_signing
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE_BASE64" ] && \
+             [ -n "$APPLE_CERTIFICATE_PASSWORD" ] && \
+             [ -n "$APPLE_PROVISIONING_PROFILE_BASE64" ] && \
+             [ -n "$KEYCHAIN_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Apple signing secrets found — building installable IPA."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Apple signing secrets are not configured. Skipping IPA build."
+            echo "::warning::Add these GitHub secrets to enable installable iOS builds:"
+            echo "::warning::  APPLE_CERTIFICATE_BASE64"
+            echo "::warning::  APPLE_CERTIFICATE_PASSWORD"
+            echo "::warning::  APPLE_PROVISIONING_PROFILE_BASE64"
+            echo "::warning::  KEYCHAIN_PASSWORD"
+          fi
 
       - name: Install Apple certificate and provisioning profile
+        if: steps.apple_signing.outputs.enabled == 'true'
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -124,9 +133,11 @@ jobs:
           cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Build signed IPA
+        if: steps.apple_signing.outputs.enabled == 'true'
         run: flutter build ipa --export-options-plist=ios/ExportOptions.plist
 
       - uses: actions/upload-artifact@v4
+        if: steps.apple_signing.outputs.enabled == 'true'
         with:
           name: ios-ipa
           path: build/ios/ipa/*.ipa
@@ -136,18 +147,34 @@ jobs:
     name: Publish GitHub Release
     needs: [android, ios]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.android.result == 'success'
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: android-apks
+          path: artifacts/android-apks
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ios-ipa
+          path: artifacts/ios-ipa
 
       - name: List release artifacts
         run: find artifacts -type f
 
+      - name: Prepare artifact list
+        id: artifacts
+        run: |
+          list="artifacts/android-apks/*"
+          if compgen -G "artifacts/ios-ipa/*.ipa" > /dev/null; then
+            list="$list,artifacts/ios-ipa/*"
+          fi
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "artifacts/android-apks/*,artifacts/ios-ipa/*"
+          artifacts: ${{ steps.artifacts.outputs.list }}
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
