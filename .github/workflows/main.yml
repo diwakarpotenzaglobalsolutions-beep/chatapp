@@ -102,9 +102,10 @@ jobs:
             echo "Apple signing configured — building installable signed IPA."
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Apple signing secrets missing — building unsigned IPA for CI only."
-            echo "::warning::Unsigned IPA cannot be installed on iPhone."
-            echo "::warning::Add APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, and APPLE_PROVISIONING_PROFILE_BASE64 for installable builds."
+            echo "::error::Cannot create installable IPA — Apple signing secrets are missing."
+            echo "::error::Add APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, and APPLE_PROVISIONING_PROFILE_BASE64 in GitHub repo secrets."
+            echo "::error::Run scripts/prepare_ios_secrets.sh on your Mac to generate these values."
+            echo "::error::Unsigned IPA files cannot be installed on iPhone (integrity error)."
           fi
 
       - name: Import signing certificate
@@ -131,19 +132,21 @@ jobs:
         if: steps.apple_signing.outputs.enabled == 'true'
         run: flutter build ipa --export-options-plist=ios/ExportOptions.plist
 
-      - name: Build unsigned IPA (CI fallback)
-        if: steps.apple_signing.outputs.enabled != 'true'
+      - name: Verify IPA is signed
+        if: steps.apple_signing.outputs.enabled == 'true'
         run: |
-          flutter build ios --release --no-codesign
+          IPA=$(ls build/ios/ipa/*.ipa | head -1)
+          test -n "$IPA"
+          unzip -q "$IPA" -d /tmp/ipa-check
+          codesign --verify --deep --strict /tmp/ipa-check/Payload/*.app
+          echo "IPA signature verified: $IPA"
 
-          mkdir -p build/ios/ipa
-          rm -rf Payload
-          mkdir Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -qr build/ios/ipa/chatapp-unsigned.ipa Payload
-          rm -rf Payload
+      - name: Fail when signing secrets missing
+        if: steps.apple_signing.outputs.enabled != 'true'
+        run: exit 1
 
       - uses: actions/upload-artifact@v4
+        if: steps.apple_signing.outputs.enabled == 'true'
         with:
           name: ios-ipa
           path: build/ios/ipa/*.ipa
@@ -153,7 +156,7 @@ jobs:
     name: Publish GitHub Release
     needs: [android, ios]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && needs.android.result == 'success' && needs.ios.result == 'success'
+    if: github.event_name == 'push' && needs.android.result == 'success'
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -161,6 +164,7 @@ jobs:
           path: artifacts/android-apks
 
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: ios-ipa
           path: artifacts/ios-ipa
@@ -168,9 +172,20 @@ jobs:
       - name: List release artifacts
         run: find artifacts -type f
 
+      - name: Prepare artifact list
+        id: artifacts
+        run: |
+          list="artifacts/android-apks/*"
+          if compgen -G "artifacts/ios-ipa/*.ipa" > /dev/null; then
+            list="$list,artifacts/ios-ipa/*"
+          else
+            echo "::warning::No signed IPA in this release. Configure Apple signing secrets to fix iPhone install."
+          fi
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "artifacts/android-apks/*,artifacts/ios-ipa/*"
+          artifacts: ${{ steps.artifacts.outputs.list }}
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
