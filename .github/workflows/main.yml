@@ -5,76 +5,48 @@ on:
     branches:
       - main
       - master
-
   push:
     branches:
       - main
       - master
       - develop
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Build Android & iOS
-    runs-on: macos-latest
-
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
     steps:
-      # --------------------------------
-      # Checkout
-      # --------------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # --------------------------------
-      # Java
-      # --------------------------------
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: "17"
 
-      # --------------------------------
-      # Flutter
-      # --------------------------------
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      # --------------------------------
-      # FCM Service Account
-      # --------------------------------
       - name: Prepare FCM service account asset
         run: |
           mkdir -p assets
-
           if [ -n "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" ]; then
             printf '%s' "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" > assets/notijson.json
           elif [ ! -f assets/notijson.json ]; then
             cp assets/notijson.json.example assets/notijson.json
           fi
-
           test -f assets/notijson.json
 
-      # --------------------------------
-      # Flutter dependencies
-      # --------------------------------
-      - name: Flutter Pub Get
-        run: flutter pub get
+      - run: flutter pub get
 
-      # --------------------------------
-      # Analyze
-      # --------------------------------
       - name: Verify Dart
-        run: |
-          flutter analyze lib \
-            --no-fatal-infos \
-            --no-fatal-warnings
+        run: flutter analyze lib --no-fatal-infos --no-fatal-warnings
 
-      # --------------------------------
-      # Android APK
-      # --------------------------------
       - name: Build Android APK
         run: |
           flutter build apk \
@@ -82,65 +54,100 @@ jobs:
             --split-per-abi \
             --android-skip-build-dependency-validation
 
-      # --------------------------------
-      # iOS - UNSIGNED BUILD
-      # --------------------------------
-      #
-      # IMPORTANT:
-      # This IPA is NOT installable on a physical iPhone.
-      # It is only a CI build artifact because there is
-      # no Apple signing configured in GitHub Actions.
-      #
-      # --------------------------------
-      - name: Build iOS unsigned
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 7
+
+  ios:
+    name: Build signed iOS IPA
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare FCM service account asset
         run: |
-          flutter clean
-          flutter pub get
+          mkdir -p assets
+          if [ -n "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" ]; then
+            printf '%s' "${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}" > assets/notijson.json
+          elif [ ! -f assets/notijson.json ]; then
+            cp assets/notijson.json.example assets/notijson.json
+          fi
+          test -f assets/notijson.json
 
-          flutter build ios \
-            --release \
-            --no-codesign
+      - run: flutter pub get
 
-      # --------------------------------
-      # Package unsigned iOS IPA
-      # --------------------------------
-      - name: Create iOS IPA
+      - name: Verify Apple signing secrets
         run: |
-          rm -rf build/ios/iphoneos/Payload
-          rm -f build/ios/iphoneos/app.ipa
+          missing=0
+          for secret in APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE_BASE64 KEYCHAIN_PASSWORD; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::$secret GitHub secret is required for installable IPA files."
+              missing=1
+            fi
+          done
+          exit $missing
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
 
-          mkdir -p build/ios/iphoneos/Payload
-
-          cp -R \
-            build/ios/iphoneos/Runner.app \
-            build/ios/iphoneos/Payload/
-
-          cd build/ios/iphoneos
-
-          zip -r app.ipa Payload
-
-      # --------------------------------
-      # Show generated files
-      # --------------------------------
-      - name: List build files
+      - name: Install Apple certificate and provisioning profile
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          echo "Android:"
-          find build/app/outputs/flutter-apk -type f
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
 
-          echo ""
-          echo "iOS:"
-          ls -lh build/ios/iphoneos/app.ipa
+          echo -n "$APPLE_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
 
-      # --------------------------------
-      # GitHub Release
-      # --------------------------------
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build signed IPA
+        run: flutter build ipa --export-options-plist=ios/ExportOptions.plist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List release artifacts
+        run: find artifacts -type f
+
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: |
-            build/app/outputs/flutter-apk/*.apk
-            build/ios/iphoneos/app.ipa
-
+          artifacts: "artifacts/android-apks/*,artifacts/ios-ipa/*"
           tag: v1.0.${{ github.run_number }}
-
           token: ${{ secrets.TOKEN }}
