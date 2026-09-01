@@ -208,6 +208,7 @@ Future<void> init() async {
 
   // Search Usecases
   sl.registerLazySingleton(() => SearchUsersUseCase(sl()));
+  sl.registerLazySingleton(() => GetFriendsUseCase(sl()));
   sl.registerLazySingleton(() => SearchMessagesUseCase(sl()));
 
   sl.registerLazySingleton(() => WatchSubscriptionUseCase(sl()));
@@ -287,6 +288,7 @@ Future<void> init() async {
   // Search
   sl.registerFactory(() => SearchBloc(
     searchUsersUseCase: sl(),
+    getFriendsUseCase: sl(),
     searchMessagesUseCase: sl(),
   ));
   sl.registerFactory(() => GroupBloc(

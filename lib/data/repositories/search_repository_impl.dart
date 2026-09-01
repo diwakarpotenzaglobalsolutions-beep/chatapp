@@ -14,6 +14,11 @@ class SearchRepositoryImpl implements SearchRepository {
   }
 
   @override
+  Future<List<UserEntity>> getFriends(String userId, String query) async {
+    return await remoteDataSource.getFriends(userId, query);
+  }
+
+  @override
   Future<List<MessageEntity>> searchMessages(String roomId, String query) async {
     return await remoteDataSource.searchMessages(roomId, query);
   }

@@ -4,6 +4,7 @@ import '../models/message_model.dart';
 
 abstract class SearchRemoteDataSource {
   Future<List<UserModel>> searchUsers(String query);
+  Future<List<UserModel>> getFriends(String userId, String query);
   Future<List<MessageModel>> searchMessages(String roomId, String query);
 }
 
@@ -57,6 +58,63 @@ class SearchRemoteDataSourceImpl implements SearchRemoteDataSource {
 
     results.sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
     return results;
+  }
+
+  @override
+  Future<List<UserModel>> getFriends(String userId, String query) async {
+    final friendUids = <String>{};
+
+    final asReceiver = await _firestore
+        .collection('chat_requests')
+        .where('receiverId', isEqualTo: userId)
+        .where('status', isEqualTo: 'accepted')
+        .get();
+    for (final doc in asReceiver.docs) {
+      final senderId = doc.data()['senderId'] as String?;
+      if (senderId != null && senderId != userId) {
+        friendUids.add(senderId);
+      }
+    }
+
+    final asSender = await _firestore
+        .collection('chat_requests')
+        .where('senderId', isEqualTo: userId)
+        .where('status', isEqualTo: 'accepted')
+        .get();
+    for (final doc in asSender.docs) {
+      final receiverId = doc.data()['receiverId'] as String?;
+      if (receiverId != null && receiverId != userId) {
+        friendUids.add(receiverId);
+      }
+    }
+
+    if (friendUids.isEmpty) return [];
+
+    final friends = <UserModel>[];
+    final uidList = friendUids.toList();
+    for (var i = 0; i < uidList.length; i += 10) {
+      final end = (i + 10 > uidList.length) ? uidList.length : i + 10;
+      final chunk = uidList.sublist(i, end);
+      final snapshot = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snapshot.docs) {
+        friends.add(UserModel.fromJson(doc.data(), doc.id));
+      }
+    }
+
+    if (query.trim().isNotEmpty) {
+      final lowercaseQuery = query.toLowerCase();
+      friends.retainWhere(
+        (user) =>
+            user.fullName.toLowerCase().contains(lowercaseQuery) ||
+            user.username.toLowerCase().contains(lowercaseQuery),
+      );
+    }
+
+    friends.sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+    return friends;
   }
 
   @override

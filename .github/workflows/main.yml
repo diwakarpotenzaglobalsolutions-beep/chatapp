@@ -54,10 +54,32 @@ jobs:
             --split-per-abi \
             --android-skip-build-dependency-validation
 
+      - name: Verify APK sizes
+        run: |
+          echo "Built APK files:"
+          ls -lh build/app/outputs/flutter-apk/*.apk
+          for apk in build/app/outputs/flutter-apk/*-release.apk; do
+            bytes=$(stat -c%s "$apk")
+            mb=$((bytes / 1024 / 1024))
+            echo "$apk -> ${mb} MB"
+            if [ "$mb" -lt 30 ]; then
+              echo "::error::APK too small (${mb} MB). Expected ~70-90 MB for this app."
+              exit 1
+            fi
+          done
+
+      - name: Stage release APKs with clear names
+        run: |
+          mkdir -p release/android
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release/android/chatapp-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release/android/chatapp-arm32.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk release/android/chatapp-x86_64.apk
+          ls -lh release/android/
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-apks
-          path: build/app/outputs/flutter-apk/*.apk
+          path: release/android/*.apk
           retention-days: 7
 
   ios:
@@ -102,9 +124,8 @@ jobs:
             echo "Apple signing configured — building installable signed IPA."
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Apple signing secrets missing — iOS will compile but IPA will not be installable on iPhone."
+            echo "::warning::Apple signing secrets missing — no installable IPA will be published."
             echo "::warning::Add APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, and APPLE_PROVISIONING_PROFILE_BASE64."
-            echo "::warning::Run scripts/prepare_ios_secrets.sh on your Mac to generate these values."
           fi
 
       - name: Import signing certificate
@@ -131,14 +152,25 @@ jobs:
         if: steps.apple_signing.outputs.enabled == 'true'
         run: flutter build ipa --export-options-plist=ios/ExportOptions.plist
 
-      - name: Verify IPA is signed
+      - name: Verify IPA size and signature
         if: steps.apple_signing.outputs.enabled == 'true'
         run: |
+          mkdir -p release/ios
           IPA=$(ls build/ios/ipa/*.ipa | head -1)
-          test -n "$IPA"
-          unzip -q "$IPA" -d /tmp/ipa-check
+          cp "$IPA" release/ios/chatapp-signed.ipa
+
+          ls -lh release/ios/
+          bytes=$(stat -f%z release/ios/chatapp-signed.ipa)
+          mb=$((bytes / 1024 / 1024))
+          echo "IPA size: ${mb} MB"
+          if [ "$mb" -lt 30 ]; then
+            echo "::error::IPA too small (${mb} MB). Expected ~80-120 MB for this app."
+            exit 1
+          fi
+
+          unzip -q release/ios/chatapp-signed.ipa -d /tmp/ipa-check
           codesign --verify --deep --strict /tmp/ipa-check/Payload/*.app
-          echo "IPA signature verified: $IPA"
+          echo "IPA signature verified."
 
       - name: Build iOS (compile check, no signing)
         if: steps.apple_signing.outputs.enabled != 'true'
@@ -148,7 +180,7 @@ jobs:
         if: steps.apple_signing.outputs.enabled == 'true'
         with:
           name: ios-ipa
-          path: build/ios/ipa/*.ipa
+          path: release/ios/chatapp-signed.ipa
           retention-days: 7
 
   release:
@@ -160,25 +192,30 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: android-apks
-          path: artifacts/android-apks
+          path: release-files/android
 
       - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: ios-ipa
-          path: artifacts/ios-ipa
+          path: release-files/ios
 
-      - name: List release artifacts
-        run: find artifacts -type f
+      - name: List release files and sizes
+        run: |
+          echo "=== Files attached to this release ==="
+          find release-files -type f -exec ls -lh {} \;
+          echo ""
+          echo "Do NOT download 'Source code (zip)' from GitHub — that is not the app."
+          echo "Download chatapp-arm64.apk (Android) and chatapp-signed.ipa (iOS, when available)."
 
       - name: Prepare artifact list
         id: artifacts
         run: |
-          list="artifacts/android-apks/*"
-          if compgen -G "artifacts/ios-ipa/*.ipa" > /dev/null; then
-            list="$list,artifacts/ios-ipa/*"
+          list="release-files/android/*"
+          if [ -f release-files/ios/chatapp-signed.ipa ]; then
+            list="$list,release-files/ios/chatapp-signed.ipa"
           else
-            echo "::warning::No signed IPA in this release. Configure Apple signing secrets to fix iPhone install."
+            echo "::warning::No signed IPA in this release. Configure Apple signing secrets for iPhone install."
           fi
           echo "list=$list" >> "$GITHUB_OUTPUT"
 
@@ -188,3 +225,16 @@ jobs:
           artifacts: ${{ steps.artifacts.outputs.list }}
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
+          body: |
+            ## Install files (download these)
+
+            | File | Platform | Expected size |
+            |------|----------|---------------|
+            | **chatapp-arm64.apk** | Android phones (most devices) | ~80-90 MB |
+            | chatapp-arm32.apk | Older Android 32-bit | ~70 MB |
+            | chatapp-x86_64.apk | Android emulators | ~90 MB |
+            | **chatapp-signed.ipa** | iPhone (signed builds only) | ~80-120 MB |
+
+            **Important:** Do not use GitHub's auto-generated **"Source code (zip)"** — that is only project source (~20 MB), not the installable app.
+
+            iOS IPA requires Apple signing secrets in GitHub Actions. Without them, only Android APKs are published.

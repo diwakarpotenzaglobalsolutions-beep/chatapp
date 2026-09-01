@@ -18,6 +18,14 @@ class SearchUsersRequested extends SearchEvent {
   List<Object?> get props => [query];
 }
 
+class SearchFriendsRequested extends SearchEvent {
+  final String userId;
+  final String query;
+  const SearchFriendsRequested({required this.userId, this.query = ''});
+  @override
+  List<Object?> get props => [userId, query];
+}
+
 class SearchMessagesRequested extends SearchEvent {
   final String roomId;
   final String query;
@@ -64,15 +72,19 @@ class SearchFailure extends SearchState {
 // Bloc
 class SearchBloc extends Bloc<SearchEvent, SearchState> {
   final SearchUsersUseCase _searchUsersUseCase;
+  final GetFriendsUseCase _getFriendsUseCase;
   final SearchMessagesUseCase _searchMessagesUseCase;
 
   SearchBloc({
     required SearchUsersUseCase searchUsersUseCase,
+    required GetFriendsUseCase getFriendsUseCase,
     required SearchMessagesUseCase searchMessagesUseCase,
   })  : _searchUsersUseCase = searchUsersUseCase,
+        _getFriendsUseCase = getFriendsUseCase,
         _searchMessagesUseCase = searchMessagesUseCase,
         super(SearchInitial()) {
     on<SearchUsersRequested>(_onSearchUsers);
+    on<SearchFriendsRequested>(_onSearchFriends);
     on<SearchMessagesRequested>(_onSearchMessages);
     on<ClearSearchRequested>(_onClearSearch);
   }
@@ -84,6 +96,22 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     emit(SearchLoading());
     try {
       final users = await _searchUsersUseCase(event.query);
+      emit(SearchUsersSuccess(users, query: event.query.trim()));
+    } catch (e) {
+      emit(SearchFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onSearchFriends(
+      SearchFriendsRequested event,
+      Emitter<SearchState> emit,
+      ) async {
+    emit(SearchLoading());
+    try {
+      final users = await _getFriendsUseCase(
+        userId: event.userId,
+        query: event.query,
+      );
       emit(SearchUsersSuccess(users, query: event.query.trim()));
     } catch (e) {
       emit(SearchFailure(e.toString()));

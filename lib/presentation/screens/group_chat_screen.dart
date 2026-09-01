@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/models/pending_media_transfer.dart';
 import '../../core/constants/theme.dart';
+import '../../core/constants/whatsapp_theme.dart';
 import '../../core/utils/date_time_formatter.dart';
 import '../../domain/entities/message_entity.dart';
 import '../../routes/router.dart';
@@ -23,6 +24,7 @@ import '../blocs/location/location_bloc.dart';
 import '../blocs/message/message_bloc.dart';
 import '../mixins/chat_media_transfer_mixin.dart';
 import '../widgets/chat/media_transfer_widgets.dart';
+import '../widgets/shimmer_loading.dart';
 import '../blocs/search/search_bloc.dart';
 import '../blocs/typing/typing_bloc.dart';
 
@@ -73,6 +75,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
   }
 
   void _onTextChanged(String text, String currentUserId) {
+    setState(() {});
     if (!_isWriting && text.isNotEmpty) {
       _isWriting = true;
       context.read<TypingBloc>().add(
@@ -323,10 +326,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
         }
       },
       child: Scaffold(
+      backgroundColor: WhatsAppColors.background(context),
       appBar: AppBar(
+        backgroundColor: WhatsAppColors.bar(context),
+        foregroundColor: Colors.white,
+        elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
         title: GestureDetector(
@@ -335,7 +342,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.surfaceLight,
+                backgroundColor: const Color(0xFF2A3942),
                 backgroundImage: widget.groupImage.isNotEmpty
                     ? CachedNetworkImageProvider(widget.groupImage)
                     : null,
@@ -350,12 +357,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
                   children: [
                     Text(
                       widget.groupName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const Text(
-                      'Tap for group info',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      'tap here for group info',
+                      style: TextStyle(fontSize: 12, color: Colors.white70),
                     ),
                   ],
                 ),
@@ -365,7 +376,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
         ),
         actions: [
           IconButton(
-            icon: Icon(_showSearch ? Icons.close : Icons.search),
+            icon: Icon(_showSearch ? Icons.close : Icons.search, color: Colors.white),
             onPressed: () {
               setState(() {
                 _showSearch = !_showSearch;
@@ -376,15 +387,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
             },
           ),
           IconButton(
-            icon: const Icon(Icons.info_outline),
+            icon: const Icon(Icons.more_vert, color: Colors.white),
             onPressed: () => context.push('${AppRoutes.groupInfo}/${widget.roomId}'),
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(gradient: context.scaffoldGradient),
-        child: Column(
-          children: [
+      body: Column(
+        children: [
             if (_showSearch)
               Padding(
                 padding: const EdgeInsets.all(8),
@@ -395,10 +404,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
                           SearchMessagesRequested(roomId: widget.roomId, query: q),
                         );
                   },
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Search messages in this group...',
-                    prefixIcon: Icon(Icons.search),
+                  style: TextStyle(color: WhatsAppColors.primaryText(context)),
+                  decoration: InputDecoration(
+                    hintText: 'Search messages...',
+                    hintStyle: const TextStyle(color: WhatsAppColors.textSecondary),
+                    prefixIcon: const Icon(Icons.search, color: WhatsAppColors.textSecondary),
+                    filled: true,
+                    fillColor: WhatsAppColors.inputBackground(context),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
               ),
@@ -435,15 +451,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
               child: BlocBuilder<MessageBloc, MessageState>(
                 builder: (context, state) {
                   if (state is MessageLoading) {
-                    return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                    return const ShimmerMessageList();
                   }
                   if (state is MessagesLoaded) {
                     final messages = state.messages;
                     if (messages.isEmpty) {
                       return Center(
                         child: Text(
-                          'Start the conversation in ${widget.groupName} 👋',
-                          style: const TextStyle(color: AppColors.textMuted),
+                          'Messages and calls are end-to-end encrypted.\nNo one outside this group can read them.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: WhatsAppColors.textSecondary.withValues(alpha: 0.9),
+                            fontSize: 13,
+                          ),
                         ),
                       );
                     }
@@ -472,8 +492,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
           ],
         ),
       ),
-    ),
     );
+
   }
 
   List<Widget> _buildGroupMessageList(List<MessageEntity> messages, String currentUserId) {
@@ -540,13 +560,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
             return Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  '${typingUsers.length} member(s) typing...',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: WhatsAppColors.receivedBubbleColor(context),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    typingUsers.length == 1
+                        ? 'typing...'
+                        : '${typingUsers.length} people typing...',
+                    style: const TextStyle(
+                      color: WhatsAppColors.textSecondary,
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
               ),
@@ -565,54 +594,65 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (!isRecording)
+                  IconButton(
+                    icon: Icon(Icons.emoji_emotions_outlined,
+                        color: WhatsAppColors.textSecondary.withValues(alpha: 0.9)),
+                    onPressed: () {},
+                  ),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: const Color(0x1AFFFFFF)),
+                      color: WhatsAppColors.inputBackground(context),
+                      borderRadius: BorderRadius.circular(24),
                     ),
                     child: Row(
                       children: [
                         if (!isRecording)
                           IconButton(
-                            icon: const Icon(Icons.attach_file_rounded, color: AppColors.textSecondary),
+                            icon: const Icon(Icons.attach_file,
+                                color: WhatsAppColors.textSecondary),
                             onPressed: () => _showAttachmentOptions(context, currentUserId),
                           ),
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: isRecording
                                 ? const _VoiceRecordingPanel()
                                 : TextFormField(
                                     controller: _messageController,
                                     onChanged: (text) => _onTextChanged(text, currentUserId),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(
+                                      color: WhatsAppColors.primaryText(context),
+                                    ),
+                                    maxLines: 4,
+                                    minLines: 1,
                                     decoration: const InputDecoration(
-                                      hintText: 'Type a message...',
+                                      hintText: 'Message',
+                                      hintStyle: TextStyle(color: WhatsAppColors.textSecondary),
                                       border: InputBorder.none,
                                       enabledBorder: InputBorder.none,
                                       focusedBorder: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 10),
                                     ),
                                   ),
                           ),
                         ),
                         if (!isRecording)
                           IconButton(
-                            icon: const Icon(Icons.mic_none_rounded, color: AppColors.textSecondary),
-                            onPressed: () {
-                              context.read<AudioBloc>().add(StartRecordingRequested());
-                            },
+                            icon: const Icon(Icons.camera_alt_outlined,
+                                color: WhatsAppColors.textSecondary),
+                            onPressed: () => _captureImage(currentUserId),
                           ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () async {
                     if (isRecording) {
@@ -624,15 +664,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> with ChatMediaTransfe
                           audioSub.cancel();
                         }
                       });
+                    } else if (_messageController.text.trim().isEmpty) {
+                      context.read<AudioBloc>().add(StartRecordingRequested());
                     } else {
                       _sendMessage(_messageController.text, MessageType.text, currentUserId);
                     }
                   },
                   child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: AppColors.primary,
+                    radius: 22,
+                    backgroundColor: WhatsAppColors.accent,
                     child: Icon(
-                      isRecording ? Icons.stop_rounded : Icons.send_rounded,
+                      isRecording
+                          ? Icons.stop_rounded
+                          : _messageController.text.trim().isEmpty
+                              ? Icons.mic
+                              : Icons.send_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -699,73 +745,93 @@ class _GroupMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alignment = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final bubbleColor = isMe ? AppColors.primary : AppColors.surface;
+    final bubbleColor = isMe
+        ? WhatsAppColors.sentBubbleColor(context)
+        : WhatsAppColors.receivedBubbleColor(context);
     final textStyle = TextStyle(
-      color: isMe ? Colors.white : AppColors.textPrimary,
+      color: isMe
+          ? Colors.white
+          : WhatsAppColors.primaryText(context),
       fontSize: 15,
+      height: 1.35,
+    );
+    final borderRadius = BorderRadius.only(
+      topLeft: const Radius.circular(8),
+      topRight: const Radius.circular(8),
+      bottomLeft: Radius.circular(isMe ? 8 : 2),
+      bottomRight: Radius.circular(isMe ? 2 : 8),
     );
 
-    return Column(
-      crossAxisAlignment: alignment,
-      children: [
-        if (!isMe && message.senderName.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 2),
-            child: Text(
-              message.senderName,
-              style: const TextStyle(
-                color: AppColors.secondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        GestureDetector(
-          onLongPress: () => _showDeleteOptions(context),
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: bubbleColor,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(0),
-                bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(16),
-              ),
-              border: Border.all(color: const Color(0x1AFFFFFF), width: 0.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMessageContent(context, textStyle),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      DateTimeFormatter.formatMessageTime(message.timestamp),
-                      style: TextStyle(
-                        color: isMe ? Colors.white70 : AppColors.textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: onReadByTap,
-                        child: _buildReceiptTick(message.status),
-                      ),
-                    ],
-                  ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: alignment,
+        children: [
+          if (!isMe && message.senderName.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 2),
+              child: Text(
+                message.senderName,
+                style: TextStyle(
+                  color: WhatsAppColors.senderNameColor(message.senderName),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
+              ),
+            ),
+          GestureDetector(
+            onLongPress: () => _showDeleteOptions(context),
+            child: Container(
+              margin: EdgeInsets.only(
+                left: isMe ? 48 : 8,
+                right: isMe ? 8 : 48,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+              decoration: BoxDecoration(
+                color: bubbleColor,
+                borderRadius: borderRadius,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMessageContent(context, textStyle),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        DateTimeFormatter.formatMessageTime(message.timestamp),
+                        style: TextStyle(
+                          color: isMe
+                              ? Colors.white.withValues(alpha: 0.75)
+                              : WhatsAppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: onReadByTap,
+                          child: _buildReceiptTick(message.status),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -897,7 +963,7 @@ class _GroupMessageBubble extends StatelessWidget {
       case MessageStatus.delivered:
         return const Icon(Icons.done_all, size: 14, color: Colors.white70);
       case MessageStatus.seen:
-        return const Icon(Icons.done_all, size: 14, color: AppColors.secondary);
+        return const Icon(Icons.done_all, size: 14, color: Color(0xFF53BDEB));
     }
   }
 }

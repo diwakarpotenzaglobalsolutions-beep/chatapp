@@ -11,6 +11,15 @@ class SearchUsersUseCase {
   }
 }
 
+class GetFriendsUseCase {
+  final SearchRepository repository;
+  GetFriendsUseCase(this.repository);
+
+  Future<List<UserEntity>> call({required String userId, required String query}) {
+    return repository.getFriends(userId, query);
+  }
+}
+
 class SearchMessagesUseCase {
   final SearchRepository repository;
   SearchMessagesUseCase(this.repository);

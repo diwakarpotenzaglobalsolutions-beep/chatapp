@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/constants/theme.dart';
+import '../../core/constants/whatsapp_theme.dart';
 import '../../domain/entities/chat_room_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/chat_usecases.dart';
@@ -16,6 +17,7 @@ import '../blocs/group/group_bloc.dart';
 import '../blocs/profile/profile_bloc.dart';
 import '../blocs/search/search_bloc.dart';
 import '../blocs/upload/upload_bloc.dart';
+import '../widgets/shimmer_loading.dart';
 
 class GroupInfoScreen extends StatefulWidget {
   final String roomId;
@@ -114,64 +116,209 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   }
 
   Future<void> _addMembers(ChatRoomEntity room, String adminId) async {
-    context.read<SearchBloc>().add(const SearchUsersRequested(''));
+    context.read<SearchBloc>().add(
+          SearchFriendsRequested(userId: adminId, query: ''),
+        );
+
+    final searchController = TextEditingController();
+    Timer? debounce;
 
     final selected = await showModalBottomSheet<Set<String>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: WhatsAppColors.background(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) {
         final selectedIds = <String>{};
         return StatefulBuilder(
           builder: (context, setModalState) {
             return DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.75,
+              initialChildSize: 0.85,
               builder: (_, controller) {
                 return Column(
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('Add Members', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: WhatsAppColors.textSecondary.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Text(
+                        'Add friends',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: WhatsAppColors.primaryText(context),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        controller: searchController,
+                        onChanged: (query) {
+                          debounce?.cancel();
+                          debounce = Timer(const Duration(milliseconds: 300), () {
+                            context.read<SearchBloc>().add(
+                                  SearchFriendsRequested(
+                                    userId: adminId,
+                                    query: query,
+                                  ),
+                                );
+                          });
+                        },
+                        style: TextStyle(color: WhatsAppColors.primaryText(context)),
+                        decoration: InputDecoration(
+                          hintText: 'Search friends...',
+                          hintStyle: const TextStyle(color: WhatsAppColors.textSecondary),
+                          prefixIcon: const Icon(Icons.search, color: WhatsAppColors.textSecondary),
+                          filled: true,
+                          fillColor: WhatsAppColors.isDark(context)
+                              ? WhatsAppColors.searchField
+                              : Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(28),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
                     ),
                     Expanded(
                       child: BlocBuilder<SearchBloc, SearchState>(
                         builder: (context, state) {
-                          if (state is! SearchUsersSuccess) {
-                            return const Center(child: CircularProgressIndicator());
+                          if (state is SearchLoading) {
+                            return const ShimmerContactList(itemCount: 6);
                           }
-                          final users = state.users
+                          if (state is! SearchUsersSuccess) {
+                            return const SizedBox.shrink();
+                          }
+                          final friends = state.users
                               .where((u) => !room.participants.contains(u.uid))
                               .toList();
-                          return ListView.builder(
+                          if (friends.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'No friends available to add',
+                                style: TextStyle(
+                                  color: WhatsAppColors.primaryText(context),
+                                ),
+                              ),
+                            );
+                          }
+                          return ListView.separated(
                             controller: controller,
-                            itemCount: users.length,
+                            itemCount: friends.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              indent: 72,
+                              color: WhatsAppColors.isDark(context)
+                                  ? WhatsAppColors.divider
+                                  : Colors.black12,
+                            ),
                             itemBuilder: (_, i) {
-                              final user = users[i];
-                              return CheckboxListTile(
-                                value: selectedIds.contains(user.uid),
-                                onChanged: (v) {
+                              final user = friends[i];
+                              final isSelected = selectedIds.contains(user.uid);
+                              return InkWell(
+                                onTap: () {
                                   setModalState(() {
-                                    if (v == true) {
-                                      selectedIds.add(user.uid);
-                                    } else {
+                                    if (isSelected) {
                                       selectedIds.remove(user.uid);
+                                    } else {
+                                      selectedIds.add(user.uid);
                                     }
                                   });
                                 },
-                                title: Text(user.fullName),
-                                subtitle: Text('@${user.username}'),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 22,
+                                        backgroundImage: user.profilePicture.isNotEmpty
+                                            ? CachedNetworkImageProvider(user.profilePicture)
+                                            : null,
+                                        child: user.profilePicture.isEmpty
+                                            ? Text(
+                                                user.fullName.isNotEmpty
+                                                    ? user.fullName[0].toUpperCase()
+                                                    : '?',
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              user.fullName,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: WhatsAppColors.primaryText(context),
+                                              ),
+                                            ),
+                                            Text(
+                                              '@${user.username}',
+                                              style: const TextStyle(
+                                                color: WhatsAppColors.textSecondary,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        isSelected
+                                            ? Icons.check_circle
+                                            : Icons.circle_outlined,
+                                        color: isSelected
+                                            ? WhatsAppColors.accent
+                                            : WhatsAppColors.textSecondary,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               );
                             },
                           );
                         },
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ElevatedButton(
-                        onPressed: selectedIds.isEmpty ? null : () => Navigator.pop(ctx, selectedIds),
-                        child: Text('Add ${selectedIds.length} member(s)'),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: WhatsAppColors.accent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                            onPressed: selectedIds.isEmpty
+                                ? null
+                                : () => Navigator.pop(ctx, selectedIds),
+                            child: Text(
+                              selectedIds.isEmpty
+                                  ? 'Select friends'
+                                  : 'Add ${selectedIds.length} friend(s)',
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -182,6 +329,9 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         );
       },
     );
+
+    debounce?.cancel();
+    searchController.dispose();
 
     if (selected != null && selected.isNotEmpty) {
       context.read<GroupBloc>().add(
@@ -268,115 +418,146 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Group Info')),
+        backgroundColor: WhatsAppColors.background(context),
+        appBar: AppBar(
+          backgroundColor: WhatsAppColors.bar(context),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: const Text('Group info'),
+        ),
         body: room == null
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-            : Container(
-                decoration: const BoxDecoration(gradient: AppColors.darkBackgroundGradient),
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 52,
-                            backgroundColor: AppColors.surfaceLight,
-                            backgroundImage: room.groupImage != null && room.groupImage!.isNotEmpty
-                                ? CachedNetworkImageProvider(room.groupImage!)
-                                : null,
-                            child: room.groupImage == null || room.groupImage!.isEmpty
-                                ? const Icon(Icons.groups, size: 48)
-                                : null,
-                          ),
-                          if (_isAdmin(room, currentUserId))
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: IconButton.filled(
-                                icon: const Icon(Icons.edit, size: 18),
+            ? const ShimmerContactList(itemCount: 5)
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 56,
+                          backgroundColor: const Color(0xFF2A3942),
+                          backgroundImage: room.groupImage != null && room.groupImage!.isNotEmpty
+                              ? CachedNetworkImageProvider(room.groupImage!)
+                              : null,
+                          child: room.groupImage == null || room.groupImage!.isEmpty
+                              ? const Icon(Icons.groups, size: 52, color: Colors.white70)
+                              : null,
+                        ),
+                        if (_isAdmin(room, currentUserId))
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: WhatsAppColors.accent,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
                                 onPressed: () => _changeGroupImage(room, currentUserId),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        room.groupName ?? 'Group',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    if (room.groupDescription != null && room.groupDescription!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Center(
-                          child: Text(
-                            room.groupDescription!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppColors.textSecondary),
                           ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      room.groupName ?? 'Group',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: WhatsAppColors.primaryText(context),
+                      ),
+                    ),
+                  ),
+                  if (room.groupDescription != null && room.groupDescription!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Center(
+                        child: Text(
+                          room.groupDescription!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: WhatsAppColors.textSecondary),
                         ),
                       ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        '${room.participants.length} members',
-                        style: const TextStyle(color: AppColors.textMuted),
-                      ),
                     ),
-                    const SizedBox(height: 24),
-                    if (_isAdmin(room, currentUserId))
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _editGroupInfo(room, currentUserId),
-                              icon: const Icon(Icons.edit),
-                              label: const Text('Edit Info'),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Group · ${room.participants.length} members',
+                      style: const TextStyle(color: WhatsAppColors.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isAdmin(room, currentUserId))
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: WhatsAppColors.accent,
+                              side: const BorderSide(color: WhatsAppColors.accent),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
+                            onPressed: () => _editGroupInfo(room, currentUserId),
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('Edit'),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _addMembers(room, currentUserId),
-                              icon: const Icon(Icons.person_add),
-                              label: const Text('Add Members'),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: WhatsAppColors.accent,
+                              side: const BorderSide(color: WhatsAppColors.accent),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
+                            onPressed: () => _addMembers(room, currentUserId),
+                            icon: const Icon(Icons.person_add_outlined),
+                            label: const Text('Add'),
                           ),
-                        ],
-                      ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Members',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    ...room.participants.map(
-                      (uid) => _MemberTile(
-                        uid: uid,
-                        isAdmin: room.adminIds.contains(uid),
-                        canRemove: _isAdmin(room, currentUserId) && uid != currentUserId,
-                        onRemove: () {
-                          context.read<GroupBloc>().add(
-                                RemoveGroupMemberRequested(
-                                  roomId: widget.roomId,
-                                  adminId: currentUserId,
-                                  memberId: uid,
-                                ),
-                              );
-                        },
-                      ),
+                  const SizedBox(height: 24),
+                  Text(
+                    '${room.participants.length} members',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: WhatsAppColors.textSecondary,
                     ),
-                    const SizedBox(height: 32),
-                    OutlinedButton.icon(
-                      onPressed: () => _leaveGroup(room, currentUserId),
-                      icon: const Icon(Icons.exit_to_app, color: AppColors.error),
-                      label: const Text('Leave Group', style: TextStyle(color: AppColors.error)),
+                  ),
+                  const SizedBox(height: 8),
+                  ...room.participants.map(
+                    (uid) => _MemberTile(
+                      uid: uid,
+                      isAdmin: room.adminIds.contains(uid),
+                      canRemove: _isAdmin(room, currentUserId) && uid != currentUserId,
+                      onRemove: () {
+                        context.read<GroupBloc>().add(
+                              RemoveGroupMemberRequested(
+                                roomId: widget.roomId,
+                                adminId: currentUserId,
+                                memberId: uid,
+                              ),
+                            );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 32),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () => _leaveGroup(room, currentUserId),
+                    icon: const Icon(Icons.exit_to_app, color: AppColors.error),
+                    label: const Text('Exit group', style: TextStyle(color: AppColors.error)),
+                  ),
+                ],
               ),
       ),
     );
@@ -403,29 +584,59 @@ class _MemberTile extends StatelessWidget {
       child: BlocBuilder<ProfileBloc, ProfileState>(
         builder: (context, state) {
           final UserEntity? user = state is ProfileLoaded ? state.user : null;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundImage: user?.profilePicture.isNotEmpty == true
-                    ? CachedNetworkImageProvider(user!.profilePicture)
-                    : null,
-                child: user?.profilePicture.isEmpty != false ? const Icon(Icons.person) : null,
-              ),
-              title: Text(user?.fullName ?? 'Loading...'),
-              subtitle: user != null ? Text('@${user.username}') : null,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+          if (user == null) {
+            return const ShimmerListTile();
+          }
+          return InkWell(
+            onTap: () {},
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
                 children: [
-                  if (isAdmin)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text('Admin', style: TextStyle(fontSize: 11, color: AppColors.primaryLight)),
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: WhatsAppColors.accent.withValues(alpha: 0.15),
+                    backgroundImage: user.profilePicture.isNotEmpty
+                        ? CachedNetworkImageProvider(user.profilePicture)
+                        : null,
+                    child: user.profilePicture.isEmpty
+                        ? Text(
+                            user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : '?',
+                            style: const TextStyle(color: WhatsAppColors.accent),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.fullName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: WhatsAppColors.primaryText(context),
+                          ),
+                        ),
+                        if (isAdmin)
+                          const Text(
+                            'Group admin',
+                            style: TextStyle(
+                              color: WhatsAppColors.accent,
+                              fontSize: 13,
+                            ),
+                          )
+                        else
+                          Text(
+                            '@${user.username}',
+                            style: const TextStyle(
+                              color: WhatsAppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
                   if (canRemove)
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline, color: AppColors.error),
