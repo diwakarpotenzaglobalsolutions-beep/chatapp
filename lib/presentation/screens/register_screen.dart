@@ -63,9 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           }
         },
         child: Container(
-          decoration: BoxDecoration(
-            gradient: context.scaffoldGradient,
-          ),
+          color: context.appBarColor,
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(

@@ -26,22 +26,18 @@ class SettingsScreen extends StatelessWidget {
         }
       },
       child: Scaffold(
+        backgroundColor: context.cardColor,
         appBar: AppBar(
           title: const Text('Settings'),
         ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: context.scaffoldGradient,
-          ),
-          child: currentUser == null
+        body: currentUser == null
               ? const Center(child: Text('User profile not loaded'))
               : ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   children: [
-                    // Profile Header card
-                    Card(
+                    InkWell(
+                      onTap: () => context.push(AppRoutes.editProfile),
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
                         child: Row(
                           children: [
                             CircleAvatar(
@@ -61,28 +57,31 @@ class SettingsScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     currentUser.fullName,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w500,
+                                      color: context.textPrimaryColor,
+                                    ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 4),
                                   Text(
                                     '@${currentUser.username}',
-                                    style: const TextStyle(color: AppColors.secondary, fontSize: 14),
+                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                                   ),
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: AppColors.primaryLight),
-                              onPressed: () => context.push(AppRoutes.editProfile),
-                            ),
+                            const Icon(Icons.qr_code_2, color: AppColors.primary),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    Divider(color: context.borderColor),
+                    const SizedBox(height: 8),
 
                     // Options Group
                     Card(
+                      color: context.surfaceColor,
                       child: Column(
                         children: [
                           ListTile(
@@ -209,7 +208,6 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-        ),
       ),
     );
   }

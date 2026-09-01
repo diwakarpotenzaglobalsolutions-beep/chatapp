@@ -55,9 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         },
         child: Container(
-          decoration: BoxDecoration(
-            gradient: context.scaffoldGradient,
-          ),
+          color: context.appBarColor,
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -69,23 +67,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Header
-                      Center(
-                        child: ShaderMask(
-                          shaderCallback: (bounds) => AppColors.primaryGradient.createShader(bounds),
-                          child: const Icon(
-                            Icons.bubble_chart_rounded,
-                            size: 80,
-                            color: Colors.white,
-                          ),
+                      const Center(
+                        child: Icon(
+                          Icons.chat,
+                          size: 72,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 16),
                       const Center(
                         child: Text(
-                          'Welcome Back',
+                          'WhatsApp',
                           style: TextStyle(
                             fontSize: 32,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color: Colors.white,
                           ),
                         ),
@@ -95,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Log in to continue chatting',
                           style: TextStyle(
                             fontSize: 16,
-                            color: AppColors.textSecondary,
+                            color: Colors.white70,
                           ),
                         ),
                       ),
@@ -177,6 +172,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           return ElevatedButton(
                             onPressed: _submitForm,
                             child: const Text('LOG IN'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.appBarLight,
+                            ),
                           );
                         },
                       ),

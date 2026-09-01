@@ -1,46 +1,53 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Dark palette
-  static const Color background = Color(0xFF0F0C20);
-  static const Color surface = Color(0xFF1B1437);
-  static const Color surfaceLight = Color(0xFF2C2257);
+  static const Color background = Color(0xFF0B141A);
+  static const Color surface = Color(0xFF1F2C34);
+  static const Color surfaceLight = Color(0xFF202C33);
 
-  // Light palette
-  static const Color lightBackground = Color(0xFFF5F3FF);
+  static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightSurfaceVariant = Color(0xFFEDE9FE);
+  static const Color lightSurfaceVariant = Color(0xFFF0F2F5);
 
-  static const Color primary = Color(0xFF8A63FF);
-  static const Color primaryLight = Color(0xFFAC92FF);
-  static const Color secondary = Color(0xFF3CD1FF);
+  static const Color primary = Color(0xFF00A884);
+  static const Color primaryLight = Color(0xFF25D366);
+  static const Color secondary = Color(0xFF53BDEB);
 
-  static const Color textPrimary = Color(0xFFF5F5FA);
-  static const Color textSecondary = Color(0xFFA5A1C0);
-  static const Color textMuted = Color(0xFF706A8F);
+  static const Color textPrimary = Color(0xFFE9EDEF);
+  static const Color textSecondary = Color(0xFF8696A0);
+  static const Color textMuted = Color(0xFF667781);
 
-  static const Color lightTextPrimary = Color(0xFF1A1625);
-  static const Color lightTextSecondary = Color(0xFF5C5470);
-  static const Color lightTextMuted = Color(0xFF8E879E);
+  static const Color lightTextPrimary = Color(0xFF111B21);
+  static const Color lightTextSecondary = Color(0xFF667781);
+  static const Color lightTextMuted = Color(0xFF8696A0);
 
-  static const Color success = Color(0xFF00E676);
-  static const Color error = Color(0xFFFF5252);
+  static const Color success = Color(0xFF00A884);
+  static const Color error = Color(0xFFEA0038);
   static const Color warning = Color(0xFFFFD600);
 
+  static const Color sentBubble = Color(0xFF005C4B);
+  static const Color sentBubbleLight = Color(0xFFD9FDD3);
+  static const Color receivedBubble = Color(0xFF202C33);
+  static const Color receivedBubbleLight = Color(0xFFFFFFFF);
+  static const Color chatBackground = Color(0xFF0B141A);
+  static const Color chatBackgroundLight = Color(0xFFECE5DD);
+  static const Color appBar = Color(0xFF1F2C34);
+  static const Color appBarLight = Color(0xFF008069);
+
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF8A63FF), Color(0xFF3CD1FF)],
+    colors: [Color(0xFF00A884), Color(0xFF008069)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient darkBackgroundGradient = LinearGradient(
-    colors: [Color(0xFF0F0C20), Color(0xFF1E0B36)],
+    colors: [Color(0xFF0B141A), Color(0xFF0B141A)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   static const LinearGradient lightBackgroundGradient = LinearGradient(
-    colors: [Color(0xFFF5F3FF), Color(0xFFE8E0FF)],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF0F2F5)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
@@ -74,22 +81,21 @@ class AppTheme {
       colorScheme: scheme,
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.appBarLight,
         elevation: 0,
-        centerTitle: true,
-        foregroundColor: AppColors.lightTextPrimary,
+        centerTitle: false,
+        foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
-          color: AppColors.lightTextPrimary,
+          color: Colors.white,
           fontSize: 20,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
         ),
-        iconTheme: IconThemeData(color: AppColors.lightTextPrimary),
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       cardTheme: CardThemeData(
         color: AppColors.lightSurface,
-        elevation: 1,
-        shadowColor: AppColors.primary.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.lightSurface,
@@ -100,7 +106,7 @@ class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.lightSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         titleTextStyle: const TextStyle(
           color: AppColors.lightTextPrimary,
           fontSize: 18,
@@ -109,21 +115,21 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.lightSurfaceVariant.withValues(alpha: 0.5),
+        fillColor: AppColors.lightSurfaceVariant,
         hintStyle: const TextStyle(color: AppColors.lightTextMuted),
         labelStyle: const TextStyle(color: AppColors.lightTextSecondary),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.primary.withValues(alpha: 0.15)),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.primary.withValues(alpha: 0.15)),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -131,17 +137,20 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      dividerTheme: DividerThemeData(
-        color: AppColors.primary.withValues(alpha: 0.12),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
       ),
+      dividerTheme: const DividerThemeData(color: Color(0x1A000000)),
     );
   }
 
@@ -166,24 +175,21 @@ class AppTheme {
       colorScheme: scheme,
       fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.appBar,
         elevation: 0,
-        centerTitle: true,
-        foregroundColor: AppColors.textPrimary,
+        centerTitle: false,
+        foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
-          color: AppColors.textPrimary,
+          color: Colors.white,
           fontSize: 20,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
         ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
@@ -194,7 +200,7 @@ class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         titleTextStyle: const TextStyle(
           color: AppColors.textPrimary,
           fontSize: 18,
@@ -203,21 +209,21 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface.withValues(alpha: 0.5),
+        fillColor: AppColors.surfaceLight,
         hintStyle: const TextStyle(color: AppColors.textMuted),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -225,17 +231,20 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      dividerTheme: DividerThemeData(
-        color: Colors.white.withValues(alpha: 0.08),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
       ),
+      dividerTheme: const DividerThemeData(color: Color(0xFF2A3942)),
     );
   }
 }
@@ -259,13 +268,23 @@ extension AppThemeContext on BuildContext {
       isDarkMode ? AppColors.textMuted : AppColors.lightTextMuted;
 
   Color get cardColor =>
-      isDarkMode ? AppColors.surface : AppColors.lightSurface;
+      isDarkMode ? AppColors.background : AppColors.lightSurface;
 
-  Color get inputFillColor => isDarkMode
-      ? AppColors.surface.withValues(alpha: 0.5)
-      : AppColors.lightSurfaceVariant.withValues(alpha: 0.5);
+  Color get inputFillColor =>
+      isDarkMode ? AppColors.surfaceLight : AppColors.lightSurfaceVariant;
 
-  Color get borderColor => isDarkMode
-      ? Colors.white.withValues(alpha: 0.08)
-      : AppColors.primary.withValues(alpha: 0.15);
+  Color get borderColor =>
+      isDarkMode ? const Color(0xFF2A3942) : const Color(0x1A000000);
+
+  Color get chatBackground =>
+      isDarkMode ? AppColors.chatBackground : AppColors.chatBackgroundLight;
+
+  Color get sentBubbleColor =>
+      isDarkMode ? AppColors.sentBubble : AppColors.sentBubbleLight;
+
+  Color get receivedBubbleColor =>
+      isDarkMode ? AppColors.receivedBubble : AppColors.receivedBubbleLight;
+
+  Color get appBarColor =>
+      isDarkMode ? AppColors.appBar : AppColors.appBarLight;
 }

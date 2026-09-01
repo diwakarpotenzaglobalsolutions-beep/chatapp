@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/theme.dart';
+import '../widgets/shimmer_loading.dart';
 import '../../domain/entities/chat_room_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../injection/injection_container.dart';
@@ -74,19 +75,21 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     final currentUserId = homeState is HomeLoaded ? homeState.currentUser.uid : '';
 
     return Scaffold(
+      backgroundColor: context.cardColor,
       appBar: AppBar(
         title: const Text('Friends'),
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(text: 'Friends'),
             Tab(text: 'Groups'),
           ],
         ),
       ),
-      body: Container(
-        decoration: BoxDecoration(gradient: context.scaffoldGradient),
-        child: Column(
+      body: Column(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -96,11 +99,11 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
                   setState(() {});
                   _onSearchChanged(query);
                 },
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: context.textPrimaryColor),
                 decoration: InputDecoration(
                   hintText: _tabController.index == 0
-                      ? 'Search by name or @username...'
-                      : 'Search your groups...',
+                      ? 'Search name or username'
+                      : 'Search groups',
                   prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -132,7 +135,6 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -148,7 +150,7 @@ class _UsersTab extends StatelessWidget {
     return BlocBuilder<SearchBloc, SearchState>(
       builder: (context, state) {
         if (state is SearchLoading) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          return const ShimmerContactList();
         }
 
         if (state is SearchUsersSuccess) {
@@ -164,9 +166,9 @@ class _UsersTab extends StatelessWidget {
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          return ListView.separated(
             itemCount: filteredUsers.length,
+            separatorBuilder: (_, __) => Divider(height: 1, indent: 76, color: context.borderColor),
             itemBuilder: (context, index) {
               final user = filteredUsers[index];
               return _UserTile(
@@ -216,7 +218,7 @@ class _GroupsTabState extends State<_GroupsTab> {
     return BlocBuilder<GroupBloc, GroupState>(
       builder: (context, state) {
         if (state is GroupLoading) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          return const ShimmerContactList();
         }
         if (state is GroupSearchLoaded) {
           if (state.groups.isEmpty) {
@@ -227,9 +229,9 @@ class _GroupsTabState extends State<_GroupsTab> {
               ),
             );
           }
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          return ListView.separated(
             itemCount: state.groups.length,
+            separatorBuilder: (_, __) => Divider(height: 1, indent: 76, color: context.borderColor),
             itemBuilder: (context, index) {
               final group = state.groups[index];
               return _GroupTile(group: group);
@@ -252,9 +254,8 @@ class _GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
+    return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: CircleAvatar(
           backgroundImage: group.groupImage != null && group.groupImage!.isNotEmpty
               ? CachedNetworkImageProvider(group.groupImage!)
@@ -263,9 +264,8 @@ class _GroupTile extends StatelessWidget {
               ? const Icon(Icons.groups)
               : null,
         ),
-        title: Text(group.groupName ?? 'Group', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('${group.participants.length} members'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        title: Text(group.groupName ?? 'Group', style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('${group.participants.length} members', style: const TextStyle(color: AppColors.textSecondary)),
         onTap: () {
           context.push(
             '${AppRoutes.groupChat}/${group.roomId}',
@@ -275,7 +275,6 @@ class _GroupTile extends StatelessWidget {
             },
           );
         },
-      ),
     );
   }
 }
@@ -288,21 +287,18 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: CircleAvatar(
           backgroundImage: user.profilePicture.isNotEmpty
               ? CachedNetworkImageProvider(user.profilePicture)
               : null,
           child: user.profilePicture.isEmpty ? const Icon(Icons.person) : null,
         ),
-        title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('@${user.username}', style: const TextStyle(color: AppColors.textMuted)),
-        trailing: const Icon(Icons.person_add_alt_1, color: AppColors.primaryLight),
+        trailing: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
         onTap: onTap,
-      ),
     );
   }
 }

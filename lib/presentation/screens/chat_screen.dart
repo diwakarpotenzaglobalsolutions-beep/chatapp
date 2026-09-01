@@ -36,6 +36,7 @@ import '../widgets/chat_call_buttons.dart';
 import '../widgets/chat_date_separator.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/message_options_sheet.dart';
+import '../widgets/shimmer_loading.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -76,6 +77,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
   }
 
   void _onTextChanged(String text, String currentUserId) {
+    setState(() {});
     if (!_isWriting && text.isNotEmpty) {
       _isWriting = true;
       context.read<TypingBloc>().add(
@@ -371,10 +373,9 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
           }
         },
         child: Scaffold(
+          backgroundColor: context.chatBackground,
           appBar: _buildAppBar(context),
-          body: Container(
-            decoration: BoxDecoration(gradient: context.scaffoldGradient),
-            child: BlocBuilder<BlockBloc, BlockState>(
+          body: BlocBuilder<BlockBloc, BlockState>(
               builder: (context, blockState) {
                 final blockStatus = blockState is BlockStatusState
                     ? blockState.status
@@ -437,17 +438,16 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                           child: BlocBuilder<MessageBloc, MessageState>(
                             builder: (context, state) {
                               if (state is MessageLoading) {
-                                return const Center(
-                                  child: CircularProgressIndicator(color: AppColors.primary),
-                                );
+                                return const ShimmerMessageList();
                               }
                               if (state is MessagesLoaded) {
                                 final messages = state.messages;
                                 if (messages.isEmpty) {
                                   return Center(
                                     child: Text(
-                                      'Say hello to ${widget.peerName} 👋',
-                                      style: const TextStyle(color: AppColors.textMuted),
+                                      'Messages are end-to-end encrypted.\nSay hello to ${widget.peerName}.',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                                     ),
                                   );
                                 }
@@ -484,7 +484,6 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                 );
               },
             ),
-          ),
         ),
       ),
     );
@@ -616,9 +615,11 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
+      backgroundColor: context.appBarColor,
+      foregroundColor: Colors.white,
       titleSpacing: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () => context.pop(),
       ),
       title: BlocBuilder<BlockBloc, BlockState>(
@@ -646,11 +647,11 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                     children: [
                       Text(
                         widget.peerName,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                       ),
                       const Text(
                         'Unavailable',
-                        style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                        style: TextStyle(fontSize: 12, color: Colors.white70),
                       ),
                     ],
                   ),
@@ -690,7 +691,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                       children: [
                         Text(
                           widget.peerName,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
                         Row(
                           children: [
@@ -700,15 +701,15 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                                 height: 6,
                                 margin: const EdgeInsets.only(right: 6),
                                 decoration: const BoxDecoration(
-                                  color: AppColors.success,
+                                  color: AppColors.primaryLight,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                             Text(
                               statusText,
                               style: TextStyle(
-                                fontSize: 10,
-                                color: isOnline ? AppColors.success : AppColors.textMuted,
+                                fontSize: 12,
+                                color: isOnline ? Colors.white70 : Colors.white70,
                               ),
                             ),
                           ],
@@ -875,55 +876,56 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: const Color(0x1AFFFFFF)),
+                      color: context.surfaceColor,
+                      borderRadius: BorderRadius.circular(24),
                     ),
                     child: Row(
                       children: [
                         if (!isRecording)
                           IconButton(
-                            icon: const Icon(Icons.attach_file_rounded, color: AppColors.textSecondary),
+                            icon: const Icon(Icons.attach_file, color: AppColors.textSecondary),
                             onPressed: () => _showAttachmentOptions(context, currentUserId),
                           ),
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: isRecording
                                 ? const _VoiceRecordingPanel()
                                 : TextFormField(
                               controller: _messageController,
                               onChanged: (text) => _onTextChanged(text, currentUserId),
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: context.textPrimaryColor),
+                              maxLines: 4,
+                              minLines: 1,
                               decoration: const InputDecoration(
-                                hintText: 'Type a message...',
+                                hintText: 'Message',
+                                hintStyle: TextStyle(color: AppColors.textSecondary),
                                 fillColor: Colors.transparent,
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
+                                contentPadding: EdgeInsets.symmetric(vertical: 10),
                               ),
                             ),
                           ),
                         ),
                         if (!isRecording)
                           IconButton(
-                            icon: const Icon(Icons.mic_none_rounded, color: AppColors.textSecondary),
-                            onPressed: () {
-                              context.read<AudioBloc>().add(StartRecordingRequested());
-                            },
+                            icon: const Icon(Icons.camera_alt_outlined, color: AppColors.textSecondary),
+                            onPressed: () => _captureImage(currentUserId),
                           ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () async {
                     if (isRecording) {
@@ -940,15 +942,21 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                           audioSub.cancel();
                         }
                       });
+                    } else if (_messageController.text.trim().isEmpty) {
+                      context.read<AudioBloc>().add(StartRecordingRequested());
                     } else {
                       _sendMessage(_messageController.text, MessageType.text, currentUserId);
                     }
                   },
                   child: CircleAvatar(
-                    radius: 24,
+                    radius: 22,
                     backgroundColor: AppColors.primary,
                     child: Icon(
-                      isRecording ? Icons.stop_rounded : Icons.send_rounded,
+                      isRecording
+                          ? Icons.stop_rounded
+                          : _messageController.text.trim().isEmpty
+                              ? Icons.mic
+                              : Icons.send_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -1098,44 +1106,56 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alignment = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final bubbleColor = isMe ? AppColors.primary : AppColors.surface;
+    final bubbleColor = isMe ? context.sentBubbleColor : context.receivedBubbleColor;
     final textStyle = TextStyle(
-      color: isMe ? Colors.white : AppColors.textPrimary,
+      color: isMe ? Colors.white : context.textPrimaryColor,
       fontSize: 15,
+      height: 1.35,
     );
     final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(16),
-      topRight: const Radius.circular(16),
-      bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(0),
-      bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(16),
+      topLeft: const Radius.circular(8),
+      topRight: const Radius.circular(8),
+      bottomLeft: Radius.circular(isMe ? 8 : 2),
+      bottomRight: Radius.circular(isMe ? 2 : 8),
     );
 
-    return Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
       crossAxisAlignment: alignment,
       children: [
         GestureDetector(
           onLongPress: () => _showDeleteOptions(context),
           child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-          padding: const EdgeInsets.all(12),
+          margin: EdgeInsets.only(left: isMe ? 48 : 8, right: isMe ? 8 : 48),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: bubbleColor,
             borderRadius: borderRadius,
-            border: Border.all(color: const Color(0x1AFFFFFF), width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildMessageContent(context, textStyle),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
                     DateTimeFormatter.formatMessageTime(message.timestamp),
-                    style: TextStyle(color:  AppColors.lightBackground, fontSize: 10),
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
                   ),
                   if (isMe) ...[
                     const SizedBox(width: 4),
@@ -1148,6 +1168,7 @@ class _MessageBubble extends StatelessWidget {
         ),
         ),
       ],
+      ),
     );
   }
 

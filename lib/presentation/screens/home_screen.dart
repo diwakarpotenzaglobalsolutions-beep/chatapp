@@ -18,6 +18,7 @@ import '../blocs/auth/auth_bloc.dart';
 import '../blocs/chat_list/chat_list_bloc.dart';
 import '../blocs/home/home_bloc.dart';
 import '../blocs/profile/profile_bloc.dart';
+import '../widgets/shimmer_loading.dart';
 import '../widgets/trial_countdown_banner.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
@@ -69,10 +70,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return BlocBuilder<HomeBloc, HomeState>(
       builder: (context, homeState) {
         if (homeState is HomeLoading) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
+          return Scaffold(
+            backgroundColor: context.surfaceColor,
+            appBar: AppBar(title: const Text('WhatsApp')),
+            body: const ShimmerContactList(),
           );
         }
 
@@ -87,49 +88,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ];
 
           return Scaffold(
+            backgroundColor: context.surfaceColor,
             body: pages[_currentIndex],
             floatingActionButton: _currentIndex == 0
-                ? FloatingActionButton.extended(
+                ? FloatingActionButton(
                     onPressed: () => context.push(AppRoutes.createGroup),
-                    icon: const Icon(Icons.group_add),
-                    label: const Text('New Group'),
                     backgroundColor: AppColors.primary,
+                    child: const Icon(Icons.chat, color: Colors.white),
                   )
                 : null,
-            bottomNavigationBar: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: context.borderColor, width: 0.5),
+            bottomNavigationBar: NavigationBar(
+              height: 68,
+              selectedIndex: _currentIndex,
+              backgroundColor: context.surfaceColor,
+              indicatorColor: AppColors.primary.withValues(alpha: 0.18),
+              onDestinationSelected: (index) {
+                setState(() => _currentIndex = index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.chat_outlined),
+                  selectedIcon: Icon(Icons.chat),
+                  label: 'Chats',
                 ),
-              ),
-              child: BottomNavigationBar(
-                currentIndex: _currentIndex,
-                backgroundColor: context.surfaceColor,
-                selectedItemColor: AppColors.primaryLight,
-                unselectedItemColor: context.textMutedColor,
-                type: BottomNavigationBarType.fixed,
-                onTap: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.chat_bubble_outline_rounded),
-                    activeIcon: Icon(Icons.chat_bubble_rounded),
-                    label: 'Chats',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.search_rounded),
-                    label: 'Friends',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings_rounded),
-                    label: 'Settings',
-                  ),
-                ],
-              ),
+                NavigationDestination(
+                  icon: Icon(Icons.people_outline),
+                  selectedIcon: Icon(Icons.people),
+                  label: 'Friends',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: 'Settings',
+                ),
+              ],
             ),
           );
         }
@@ -228,27 +220,40 @@ class _ChatListTabState extends State<_ChatListTab>
     super.build(context);
 
     return Scaffold(
+      backgroundColor: context.cardColor,
       appBar: AppBar(
-        title: const Text('Chats'),
+        title: const Text('WhatsApp'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.camera_alt_outlined),
+            onPressed: () => context.push(AppRoutes.createGroup),
+          ),
           IconButton(
             icon: const Icon(Icons.person_add_alt_1),
             tooltip: 'Chat Requests',
             onPressed: () => context.push(AppRoutes.chatRequests),
           ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'group') context.push(AppRoutes.createGroup);
+              if (value == 'requests') context.push(AppRoutes.chatRequests);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'group', child: Text('New group')),
+              PopupMenuItem(value: 'requests', child: Text('Chat requests')),
+            ],
+          ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(gradient: context.scaffoldGradient),
-        child: Column(
+      body: Column(
           children: [
             const TrialCountdownBanner(),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search chats by name or message...',
+                  hintText: 'Search',
                   prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -268,9 +273,7 @@ class _ChatListTabState extends State<_ChatListTab>
           },
           builder: (context, state) {
             if (state.isInitialLoading && !state.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              );
+              return const ShimmerContactList();
             }
 
             if (state.error != null && !state.hasData) {
@@ -371,11 +374,15 @@ class _ChatListTabState extends State<_ChatListTab>
             return RefreshIndicator(
               onRefresh: _onRefresh,
               color: AppColors.primary,
-              child: ListView.builder(
+              child: ListView.separated(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: filteredRooms.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  indent: 76,
+                  color: context.borderColor,
+                ),
                 itemBuilder: (context, index) {
                   final room = filteredRooms[index];
                   if (room.isGroup) {
@@ -401,7 +408,6 @@ class _ChatListTabState extends State<_ChatListTab>
         ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -434,11 +440,8 @@ class _GroupRoomTile extends StatelessWidget {
       }
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: context.cardColor,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: CircleAvatar(
           radius: 26,
           backgroundColor: context.surfaceColor,
@@ -452,7 +455,7 @@ class _GroupRoomTile extends StatelessWidget {
         title: Text(
           room.groupName ?? 'Group',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             fontSize: 16,
             color: context.textPrimaryColor,
           ),
@@ -461,8 +464,8 @@ class _GroupRoomTile extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4),
           child: typingCount > 0
               ? const Text(
-                  'Someone is typing...',
-                  style: TextStyle(color: AppColors.success, fontStyle: FontStyle.italic),
+                  'typing...',
+                  style: TextStyle(color: AppColors.primary, fontStyle: FontStyle.italic),
                 )
               : Text(
                   _getLastMessageText(room.lastMessage),
@@ -472,7 +475,7 @@ class _GroupRoomTile extends StatelessWidget {
                     color: unreadCount > 0
                         ? context.textPrimaryColor
                         : context.textMutedColor,
-                    fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
         ),
@@ -480,14 +483,20 @@ class _GroupRoomTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(timeStr, style: TextStyle(color: context.textMutedColor, fontSize: 11)),
+            Text(
+              timeStr,
+              style: TextStyle(
+                color: unreadCount > 0 ? AppColors.primary : context.textMutedColor,
+                fontSize: 12,
+              ),
+            ),
             const SizedBox(height: 6),
             if (unreadCount > 0)
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: const BoxDecoration(
                   color: AppColors.primary,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
                 ),
                 child: Text(
                   '$unreadCount',
@@ -509,7 +518,6 @@ class _GroupRoomTile extends StatelessWidget {
             },
           );
         },
-      ),
     );
   }
 
@@ -566,14 +574,9 @@ class _ChatRoomTile extends StatelessWidget {
               }
             }
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              color: context.cardColor,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: Stack(
-                  children: [
-                    CircleAvatar(
+            return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                leading: CircleAvatar(
                       radius: 26,
                       backgroundColor: context.surfaceColor,
                       backgroundImage: peer.profilePicture.isNotEmpty
@@ -589,27 +592,11 @@ class _ChatRoomTile extends StatelessWidget {
                               ),
                             )
                           : null,
-                    ),
-                    // if (peer.onlineStatus)
-                    //   Positioned(
-                    //     right: 0,
-                    //     bottom: 0,
-                    //     child: Container(
-                    //       width: 14,
-                    //       height: 14,
-                    //       decoration: BoxDecoration(
-                    //         color: AppColors.success,
-                    //         shape: BoxShape.circle,
-                    //         border: Border.all(color: context.surfaceColor, width: 2),
-                    //       ),
-                    //     ),
-                    //   ),
-                  ],
                 ),
                 title: Text(
                   peer.fullName,
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     fontSize: 16,
                     color: context.textPrimaryColor,
                   ),
@@ -618,9 +605,9 @@ class _ChatRoomTile extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4.0),
                   child: isTyping
                       ? const Text(
-                          'Typing...',
+                          'typing...',
                           style: TextStyle(
-                            color: AppColors.success,
+                            color: AppColors.primary,
                             fontStyle: FontStyle.italic,
                           ),
                         )
@@ -633,7 +620,7 @@ class _ChatRoomTile extends StatelessWidget {
                                 ? context.textPrimaryColor
                                 : context.textMutedColor,
                             fontWeight:
-                                unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                                unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
                 ),
@@ -643,20 +630,23 @@ class _ChatRoomTile extends StatelessWidget {
                   children: [
                     Text(
                       timeStr,
-                      style: TextStyle(color: context.textMutedColor, fontSize: 11),
+                      style: TextStyle(
+                        color: unreadCount > 0 ? AppColors.primary : context.textMutedColor,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     if (unreadCount > 0)
                       Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: const BoxDecoration(
                           color: AppColors.primary,
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
                         ),
                         child: Text(
                           '$unreadCount',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -677,14 +667,9 @@ class _ChatRoomTile extends StatelessWidget {
                     },
                   );
                 },
-              ),
             );
           }
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            color: context.cardColor,
-            child: Container(),
-          );
+          return const ShimmerListTile();
         },
       ),
     );
