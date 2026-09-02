@@ -546,10 +546,26 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
     return false;
   }
 
+  Future<void> _unblockOnThisChat() async {
+    final authState = context.read<AuthBloc>().state;
+    final currentUserId = authState is Authenticated ? authState.user.uid : '';
+    if (currentUserId.isEmpty) return;
+
+    final confirmed = await confirmUnblockUser(context, widget.peerName);
+    if (confirmed && mounted) {
+      context.read<BlockBloc>().add(
+            UnblockUserRequested(
+              blockerId: currentUserId,
+              blockedUserId: widget.peerId,
+            ),
+          );
+    }
+  }
+
   Widget _buildBlockBanner(BlockStatusEntity blockStatus) {
     if (!blockStatus.isBlockedEitherWay) return const SizedBox.shrink();
     if (blockStatus.blockedByMe) {
-      return _banner('You blocked this user. Unblock to send messages.', AppColors.error);
+      return const SizedBox.shrink();
     }
     return _banner('You cannot message this user.', AppColors.error);
   }
@@ -584,12 +600,13 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
   }
 
   Widget _buildDisabledInputBar([BlockStatusEntity? blockStatus]) {
+    final blockedByMe = blockStatus?.blockedByMe ?? false;
     final blocked = blockStatus?.isBlockedEitherWay ?? false;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(28),
@@ -602,10 +619,27 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                 size: 18,
               ),
               const SizedBox(width: 10),
-              Text(
-                blocked ? 'Communication is blocked' : 'Messaging unavailable',
-                style: const TextStyle(color: AppColors.textMuted),
+              Expanded(
+                child: Text(
+                  blockedByMe
+                      ? 'You blocked this contact'
+                      : blocked
+                          ? 'Communication is blocked'
+                          : 'Messaging unavailable',
+                  style: const TextStyle(color: AppColors.textMuted),
+                ),
               ),
+              if (blockedByMe)
+                TextButton(
+                  onPressed: _unblockOnThisChat,
+                  child: const Text(
+                    'Unblock',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -693,26 +727,31 @@ class _ChatScreenState extends State<ChatScreen> with ChatMediaTransferMixin {
                           widget.peerName,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
-                        Row(
-                          children: [
-                            if (isOnline)
-                              Container(
-                                width: 6,
-                                height: 6,
-                                margin: const EdgeInsets.only(right: 6),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryLight,
-                                  shape: BoxShape.circle,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isOnline)
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              Text(
+                                statusText,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
                                 ),
                               ),
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isOnline ? Colors.white70 : Colors.white70,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),

@@ -222,7 +222,7 @@ class _ChatListTabState extends State<_ChatListTab>
     return Scaffold(
       backgroundColor: context.cardColor,
       appBar: AppBar(
-        title: const Text('WhatsApp'),
+        title: const Text('Elite Chat'),
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),

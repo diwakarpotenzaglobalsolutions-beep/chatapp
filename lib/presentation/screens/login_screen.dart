@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                       const Center(
                         child: Text(
-                          'WhatsApp',
+                          'Elite Chat',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w600,

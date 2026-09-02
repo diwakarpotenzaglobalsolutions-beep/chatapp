@@ -30,9 +30,9 @@ class DateTimeFormatter {
     final time = DateFormat('hh:mm a').format(lastSeen);
 
     if (difference == 0) return time;
-    if (difference == 1) return 'Last seen yesterday $time';
+    if (difference == 1) return 'yesterday $time';
     final date = DateFormat('dd MMM yyyy').format(lastSeen);
-    return 'Last seen $date-$time';
+    return '$date-$time';
   }
 
   static String formatCallHistoryDateTime(DateTime dateTime) {
